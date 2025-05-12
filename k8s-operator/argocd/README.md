@@ -1,4 +1,3 @@
-
 # Multi-Cluster Kubernetes Setup with Tailscale and ArgoCD
 
 This guide focuses on configuring the Tailscale Kubernetes operator to expose Kubernetes API servers across multiple clusters for ArgoCD multi-cluster management.
@@ -32,6 +31,18 @@ Configure each cluster with a unique hostname (e.g., `cluster1-k8s-operator`, `c
 
 ## Set Up DNS Configuration in ArgoCD Cluster
 
+### Why DNS Configuration is Necessary
+
+DNS configuration is a critical component that enables your ArgoCD cluster to resolve Tailnet domain names. Without this configuration:
+
+1. Your cluster cannot resolve `*.ts.net` domains that Tailscale uses
+2. Communication between clusters would fail as hostname resolution would not work
+3. ArgoCD would be unable to connect to remote Kubernetes API servers
+
+The Tailscale DNS nameserver provides resolution for all nodes in your Tailnet, enabling seamless cross-cluster communication through Tailscale's private network.
+
+### Implementation
+
 Create a DNSConfig resource in the ArgoCD cluster:
 
 ```yaml
@@ -46,7 +57,34 @@ spec:
       tag: unstable
 ```
 
-Find the nameserver IP and update CoreDNS as described in the [cluster egress documentation](https://tailscale.com/kb/1438/kubernetes-operator-cluster-egress).
+Find the nameserver IP:
+
+```bash
+kubectl get dnsconfig ts-dns
+# Note the NAMESERVERIP (e.g., 10.100.124.196)
+```
+
+Update CoreDNS configuration to forward Tailscale domain lookups to the Tailscale nameserver:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns
+  namespace: kube-system
+data:
+  Corefile: |
+    .:53 {
+      # ... existing config ...
+    }
+    ts.net {
+      errors
+      cache 30
+      forward . 10.100.124.196
+    }
+```
+
+This configuration tells CoreDNS to forward all `ts.net` domain resolution requests to the Tailscale nameserver, allowing pods in your cluster to resolve Tailnet hostnames.
 
 ## Create Egress Services in ArgoCD Cluster
 
