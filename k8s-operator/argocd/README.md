@@ -29,6 +29,51 @@ Key parameters:
 
 Configure each cluster with a unique hostname (e.g., `cluster1-k8s-operator`, `cluster2-k8s-operator`).
 
+## Configure Tailscale ACL Grants for Cross-Cluster Access
+
+For egress proxies to communicate with Kubernetes API servers exposed by the Tailscale operators, you need to configure appropriate ACL grants in your Tailscale admin console.
+
+### Why ACL Grants Are Required
+
+Without proper ACL grants:
+1. Access to remote Kubernetes API servers will be blocked by Tailscale's access controls
+2. ArgoCD will be unable to manage resources across clusters
+3. Cross-cluster communication will fail with authentication errors
+
+### Configuring ACL Grants
+
+Add the following to your Tailscale ACL configuration:
+
+```json
+"grants": [
+  {
+    "src": ["autogroup:admin", "tag:k8s"],
+    "dst": ["tag:k8s-operator"],
+    "app": {
+      "tailscale.com/cap/kubernetes": [
+        {
+          "impersonate": {
+            "groups": ["system:masters"]
+          },
+          "recorder": ["tag:k8s-recorder"],
+          "enforceRecorder": false
+        }
+      ]
+    }
+  }
+]
+```
+
+Key components of this configuration:
+
+- `"src": ["autogroup:admin", "tag:k8s"]` - Specifies who can access the Kubernetes API. Here, it allows admin users and any node tagged with `tag:k8s` (your ArgoCD cluster)
+- `"dst": ["tag:k8s-operator"]` - Specifies which Kubernetes operators can be accessed (targets)
+- `"impersonate": {"groups": ["system:masters"]}` - Grants administrative access to the Kubernetes API
+- `"recorder": ["tag:k8s-recorder"]` - Optional audit logging configuration
+- `"enforceRecorder": false` - Makes audit recording optional
+
+This grant enables ArgoCD (tagged with `tag:k8s`) to communicate with the Kubernetes API servers exposed by the Tailscale operators in your remote clusters.
+
 ## Set Up DNS Configuration in ArgoCD Cluster
 
 ### Why DNS Configuration is Necessary
