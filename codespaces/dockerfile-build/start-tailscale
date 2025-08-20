@@ -1,0 +1,21 @@
+#!/bin/bash
+set -e
+
+# Wait for tailscaled socket to be ready
+while [ ! -S /var/run/tailscale/tailscaled.sock ]; do
+    echo "Waiting for tailscaled socket..."
+    sleep 1
+done
+
+# Wait a bit more for tailscaled to be fully ready
+sleep 2
+
+# Check if auth key is provided
+if [ -n "$TAILSCALE_AUTHKEY" ]; then
+    echo "Authenticating with Tailscale..."
+    tailscale up --authkey="$TAILSCALE_AUTHKEY" --accept-routes
+    echo "Tailscale authentication completed!"
+else
+    echo "No TAILSCALE_AUTHKEY provided. Manual authentication required."
+    echo "Run: tailscale up"
+fi
