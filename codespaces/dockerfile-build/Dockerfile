@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/vscode/devcontainers/base:0-bullseye
+FROM mcr.microsoft.com/vscode/devcontainers/base:1-bullseye
 
 # Install wiz cli
 RUN curl -z wizcli -Lo wizcli https://downloads.wiz.io/wizcli/latest/wizcli-linux-amd64 && \
